@@ -1,3 +1,4 @@
+import os
 from flask import Flask, render_template_string, abort, request, redirect, url_for, Response
 import re
 import logging
@@ -12,8 +13,10 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "aceest123"
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "aceest123")
+PORT = int(os.environ.get("PORT", 5000))
+DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 
 programs = {
     "fat-loss": {
@@ -46,10 +49,7 @@ def check_auth(username, password):
     return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
 
 def authenticate():
-    return Response(
-        'Admin login required.', 401,
-        {'WWW-Authenticate': 'Basic realm="Admin Area"'}
-    )
+    return Response('Admin login required.', 401, {'WWW-Authenticate': 'Basic realm="Admin Area"'})
 
 def requires_auth(f):
     @wraps(f)
@@ -106,9 +106,7 @@ SIGNUP_PAGE = """
 MEMBERS_PAGE = """
 <h1>Members ({{ members|length }})</h1>
 <ul>
-{% for m in members %}
-  <li>{{ m.name }} - {{ m.email }}</li>
-{% endfor %}
+{% for m in members %}<li>{{ m.name }} - {{ m.email }}</li>{% endfor %}
 </ul>
 <a href="/">Back</a>
 """
@@ -120,15 +118,11 @@ BOOK_PAGE = """
   Name: <input type="text" name="name"><br><br>
   Program:
   <select name="program">
-    {% for key, p in programs.items() %}
-      <option value="{{ key }}">{{ p.name }}</option>
-    {% endfor %}
+    {% for key, p in programs.items() %}<option value="{{ key }}">{{ p.name }}</option>{% endfor %}
   </select><br><br>
   Time Slot:
   <select name="slot">
-    {% for slot in slots %}
-      <option value="{{ slot }}">{{ slot }}</option>
-    {% endfor %}
+    {% for slot in slots %}<option value="{{ slot }}">{{ slot }}</option>{% endfor %}
   </select><br><br>
   <input type="submit" value="Book Session">
 </form>
@@ -138,9 +132,7 @@ BOOK_PAGE = """
 BOOKINGS_PAGE = """
 <h1>Bookings ({{ bookings|length }})</h1>
 <ul>
-{% for b in bookings %}
-  <li>{{ b.name }} - {{ b.program }} - {{ b.slot }}</li>
-{% endfor %}
+{% for b in bookings %}<li>{{ b.name }} - {{ b.program }} - {{ b.slot }}</li>{% endfor %}
 </ul>
 <a href="/">Back</a>
 """
@@ -151,11 +143,7 @@ ANALYTICS_PAGE = """
 <p>Total Bookings: {{ total_bookings }}</p>
 <p>Most Booked Program: {{ top_program }}</p>
 <h3>Bookings per Program</h3>
-<ul>
-{% for prog, count in program_counts %}
-  <li>{{ prog }}: {{ count }}</li>
-{% endfor %}
-</ul>
+<ul>{% for prog, count in program_counts %}<li>{{ prog }}: {{ count }}</li>{% endfor %}</ul>
 <a href="/">Back</a>
 """
 
@@ -167,9 +155,7 @@ PAY_PAGE = """
   Name: <input type="text" name="name"><br><br>
   Program:
   <select name="program">
-    {% for key, p in programs.items() %}
-      <option value="{{ key }}">{{ p.name }} (Rs.{{ p.fee }})</option>
-    {% endfor %}
+    {% for key, p in programs.items() %}<option value="{{ key }}">{{ p.name }} (Rs.{{ p.fee }})</option>{% endfor %}
   </select><br><br>
   <input type="submit" value="Pay Now">
 </form>
@@ -179,17 +165,11 @@ PAY_PAGE = """
 ADMIN_PAGE = """
 <h1>Admin Dashboard</h1>
 <h3>All Members ({{ members|length }})</h3>
-<ul>
-{% for m in members %}<li>{{ m.name }} - {{ m.email }}</li>{% endfor %}
-</ul>
+<ul>{% for m in members %}<li>{{ m.name }} - {{ m.email }}</li>{% endfor %}</ul>
 <h3>All Bookings ({{ bookings|length }})</h3>
-<ul>
-{% for b in bookings %}<li>{{ b.name }} - {{ b.program }} - {{ b.slot }}</li>{% endfor %}
-</ul>
+<ul>{% for b in bookings %}<li>{{ b.name }} - {{ b.program }} - {{ b.slot }}</li>{% endfor %}</ul>
 <h3>Payments ({{ payments|length }}) - Total Revenue: Rs.{{ total_revenue }}</h3>
-<ul>
-{% for p in payments %}<li>Receipt #{{ loop.index }}: {{ p.name }} - {{ p.program }} - Rs.{{ p.amount }}</li>{% endfor %}
-</ul>
+<ul>{% for p in payments %}<li>Receipt #{{ loop.index }}: {{ p.name }} - {{ p.program }} - Rs.{{ p.amount }}</li>{% endfor %}</ul>
 <a href="/">Back</a>
 """
 
@@ -273,11 +253,8 @@ def analytics():
     counts = Counter(program_names)
     top_program = counts.most_common(1)[0][0] if counts else "No bookings yet"
     return render_template_string(
-        ANALYTICS_PAGE,
-        total_members=len(members),
-        total_bookings=len(bookings),
-        top_program=top_program,
-        program_counts=counts.most_common()
+        ANALYTICS_PAGE, total_members=len(members), total_bookings=len(bookings),
+        top_program=top_program, program_counts=counts.most_common()
     )
 
 @app.route('/pay', methods=['GET', 'POST'])
@@ -301,4 +278,4 @@ def admin():
     return render_template_string(ADMIN_PAGE, members=members, bookings=bookings, payments=payments, total_revenue=total_revenue)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=PORT, debug=DEBUG)
