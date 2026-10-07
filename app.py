@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, abort
+from flask import Flask, render_template_string, abort, request, redirect, url_for
 
 app = Flask(__name__)
 
@@ -20,6 +20,8 @@ programs = {
     }
 }
 
+members = []
+
 HOME_PAGE = """
 <h1>ACEest Fitness and Gym</h1>
 <p>Select a program:</p>
@@ -30,6 +32,7 @@ HOME_PAGE = """
 </ul>
 <hr>
 <p>Capacity: 150 Users | Area: 10,000 sq ft | Break-even: 250 Members</p>
+<p><a href="/signup">Sign up as a member</a> | <a href="/members">View members ({{ member_count }})</a></p>
 """
 
 PROGRAM_PAGE = """
@@ -41,9 +44,29 @@ PROGRAM_PAGE = """
 <a href="/">Back</a>
 """
 
+SIGNUP_PAGE = """
+<h1>Member Signup</h1>
+<form method="POST">
+  Name: <input type="text" name="name"><br><br>
+  Email: <input type="text" name="email"><br><br>
+  <input type="submit" value="Sign Up">
+</form>
+<a href="/">Back</a>
+"""
+
+MEMBERS_PAGE = """
+<h1>Members ({{ members|length }})</h1>
+<ul>
+{% for m in members %}
+  <li>{{ m.name }} - {{ m.email }}</li>
+{% endfor %}
+</ul>
+<a href="/">Back</a>
+"""
+
 @app.route('/')
 def home():
-    return render_template_string(HOME_PAGE, programs=programs)
+    return render_template_string(HOME_PAGE, programs=programs, member_count=len(members))
 
 @app.route('/program/<key>')
 def program(key):
@@ -51,6 +74,19 @@ def program(key):
     if not p:
         abort(404)
     return render_template_string(PROGRAM_PAGE, program=p)
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        members.append({"name": name, "email": email})
+        return redirect(url_for('members_list'))
+    return render_template_string(SIGNUP_PAGE)
+
+@app.route('/members')
+def members_list():
+    return render_template_string(MEMBERS_PAGE, members=members)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
