@@ -22,7 +22,9 @@ programs = {
 }
 
 members = []
+bookings = []
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+TIME_SLOTS = ["7:00 AM", "9:00 AM", "5:00 PM", "7:00 PM"]
 
 HOME_PAGE = """
 <h1>ACEest Fitness and Gym</h1>
@@ -34,7 +36,12 @@ HOME_PAGE = """
 </ul>
 <hr>
 <p>Capacity: 150 Users | Area: 10,000 sq ft | Break-even: 250 Members</p>
-<p><a href="/signup">Sign up as a member</a> | <a href="/members">View members ({{ member_count }})</a></p>
+<p>
+  <a href="/signup">Sign up as a member</a> | 
+  <a href="/members">View members ({{ member_count }})</a> | 
+  <a href="/book">Book a trainer session</a> | 
+  <a href="/bookings">View bookings ({{ booking_count }})</a>
+</p>
 """
 
 PROGRAM_PAGE = """
@@ -67,9 +74,41 @@ MEMBERS_PAGE = """
 <a href="/">Back</a>
 """
 
+BOOK_PAGE = """
+<h1>Book a Trainer Session</h1>
+{% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
+<form method="POST">
+  Name: <input type="text" name="name"><br><br>
+  Program:
+  <select name="program">
+    {% for key, p in programs.items() %}
+      <option value="{{ key }}">{{ p.name }}</option>
+    {% endfor %}
+  </select><br><br>
+  Time Slot:
+  <select name="slot">
+    {% for slot in slots %}
+      <option value="{{ slot }}">{{ slot }}</option>
+    {% endfor %}
+  </select><br><br>
+  <input type="submit" value="Book Session">
+</form>
+<a href="/">Back</a>
+"""
+
+BOOKINGS_PAGE = """
+<h1>Bookings ({{ bookings|length }})</h1>
+<ul>
+{% for b in bookings %}
+  <li>{{ b.name }} - {{ b.program }} - {{ b.slot }}</li>
+{% endfor %}
+</ul>
+<a href="/">Back</a>
+"""
+
 @app.route('/')
 def home():
-    return render_template_string(HOME_PAGE, programs=programs, member_count=len(members))
+    return render_template_string(HOME_PAGE, programs=programs, member_count=len(members), booking_count=len(bookings))
 
 @app.route('/program/<key>')
 def program(key):
@@ -83,12 +122,10 @@ def signup():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').strip()
-
         if not name:
             return render_template_string(SIGNUP_PAGE, error="Name cannot be empty.")
         if not EMAIL_REGEX.match(email):
             return render_template_string(SIGNUP_PAGE, error="Please enter a valid email address.")
-
         members.append({"name": name, "email": email})
         return redirect(url_for('members_list'))
     return render_template_string(SIGNUP_PAGE, error=None)
@@ -96,6 +133,22 @@ def signup():
 @app.route('/members')
 def members_list():
     return render_template_string(MEMBERS_PAGE, members=members)
+
+@app.route('/book', methods=['GET', 'POST'])
+def book():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        program_key = request.form.get('program')
+        slot = request.form.get('slot')
+        if not name:
+            return render_template_string(BOOK_PAGE, error="Name cannot be empty.", programs=programs, slots=TIME_SLOTS)
+        bookings.append({"name": name, "program": programs[program_key]["name"], "slot": slot})
+        return redirect(url_for('bookings_list'))
+    return render_template_string(BOOK_PAGE, error=None, programs=programs, slots=TIME_SLOTS)
+
+@app.route('/bookings')
+def bookings_list():
+    return render_template_string(BOOKINGS_PAGE, bookings=bookings)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
