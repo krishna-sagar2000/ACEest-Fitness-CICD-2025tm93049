@@ -1,6 +1,7 @@
 from flask import Flask, render_template_string, abort, request, redirect, url_for
 import re
 import logging
+from collections import Counter
 
 app = Flask(__name__)
 
@@ -47,7 +48,8 @@ HOME_PAGE = """
   <a href="/signup">Sign up as a member</a> | 
   <a href="/members">View members ({{ member_count }})</a> | 
   <a href="/book">Book a trainer session</a> | 
-  <a href="/bookings">View bookings ({{ booking_count }})</a>
+  <a href="/bookings">View bookings ({{ booking_count }})</a> | 
+  <a href="/analytics">View analytics</a>
 </p>
 """
 
@@ -108,6 +110,20 @@ BOOKINGS_PAGE = """
 <ul>
 {% for b in bookings %}
   <li>{{ b.name }} - {{ b.program }} - {{ b.slot }}</li>
+{% endfor %}
+</ul>
+<a href="/">Back</a>
+"""
+
+ANALYTICS_PAGE = """
+<h1>Analytics</h1>
+<p>Total Members: {{ total_members }}</p>
+<p>Total Bookings: {{ total_bookings }}</p>
+<p>Most Booked Program: {{ top_program }}</p>
+<h3>Bookings per Program</h3>
+<ul>
+{% for prog, count in program_counts %}
+  <li>{{ prog }}: {{ count }}</li>
 {% endfor %}
 </ul>
 <a href="/">Back</a>
@@ -186,6 +202,19 @@ def book():
 @app.route('/bookings')
 def bookings_list():
     return render_template_string(BOOKINGS_PAGE, bookings=bookings)
+
+@app.route('/analytics')
+def analytics():
+    program_names = [b['program'] for b in bookings]
+    counts = Counter(program_names)
+    top_program = counts.most_common(1)[0][0] if counts else "No bookings yet"
+    return render_template_string(
+        ANALYTICS_PAGE,
+        total_members=len(members),
+        total_bookings=len(bookings),
+        top_program=top_program,
+        program_counts=counts.most_common()
+    )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
