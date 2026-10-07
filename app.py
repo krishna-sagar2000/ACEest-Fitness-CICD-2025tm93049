@@ -1,4 +1,5 @@
 from flask import Flask, render_template_string, abort, request, redirect, url_for
+import re
 
 app = Flask(__name__)
 
@@ -21,6 +22,7 @@ programs = {
 }
 
 members = []
+EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 HOME_PAGE = """
 <h1>ACEest Fitness and Gym</h1>
@@ -46,6 +48,7 @@ PROGRAM_PAGE = """
 
 SIGNUP_PAGE = """
 <h1>Member Signup</h1>
+{% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
 <form method="POST">
   Name: <input type="text" name="name"><br><br>
   Email: <input type="text" name="email"><br><br>
@@ -78,11 +81,17 @@ def program(key):
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+
+        if not name:
+            return render_template_string(SIGNUP_PAGE, error="Name cannot be empty.")
+        if not EMAIL_REGEX.match(email):
+            return render_template_string(SIGNUP_PAGE, error="Please enter a valid email address.")
+
         members.append({"name": name, "email": email})
         return redirect(url_for('members_list'))
-    return render_template_string(SIGNUP_PAGE)
+    return render_template_string(SIGNUP_PAGE, error=None)
 
 @app.route('/members')
 def members_list():
