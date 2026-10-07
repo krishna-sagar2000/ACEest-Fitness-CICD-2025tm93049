@@ -1,7 +1,8 @@
-from flask import Flask, render_template_string, abort, request, redirect, url_for
+from flask import Flask, render_template_string, abort, request, redirect, url_for, Response
 import re
 import logging
 from collections import Counter
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -10,6 +11,9 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "aceest123"
 
 programs = {
     "fat-loss": {
@@ -34,6 +38,25 @@ bookings = []
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 TIME_SLOTS = ["7:00 AM", "9:00 AM", "5:00 PM", "7:00 PM"]
 
+def check_auth(username, password):
+    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
+
+def authenticate():
+    return Response(
+        'Admin login required.', 401,
+        {'WWW-Authenticate': 'Basic realm="Admin Area"'}
+    )
+
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            logging.warning("Failed admin login attempt")
+            return authenticate()
+        return f(*args, **kwargs)
+    return decorated
+
 HOME_PAGE = """
 <h1>ACEest Fitness and Gym</h1>
 <p>Select a program:</p>
@@ -49,7 +72,8 @@ HOME_PAGE = """
   <a href="/members">View members ({{ member_count }})</a> | 
   <a href="/book">Book a trainer session</a> | 
   <a href="/bookings">View bookings ({{ booking_count }})</a> | 
-  <a href="/analytics">View analytics</a>
+  <a href="/analytics">View analytics</a> | 
+  <a href="/admin">Admin Dashboard</a>
 </p>
 """
 
@@ -125,6 +149,19 @@ ANALYTICS_PAGE = """
 {% for prog, count in program_counts %}
   <li>{{ prog }}: {{ count }}</li>
 {% endfor %}
+</ul>
+<a href="/">Back</a>
+"""
+
+ADMIN_PAGE = """
+<h1>Admin Dashboard</h1>
+<h3>All Members ({{ members|length }})</h3>
+<ul>
+{% for m in members %}<li>{{ m.name }} - {{ m.email }}</li>{% endfor %}
+</ul>
+<h3>All Bookings ({{ bookings|length }})</h3>
+<ul>
+{% for b in bookings %}<li>{{ b.name }} - {{ b.program }} - {{ b.slot }}</li>{% endfor %}
 </ul>
 <a href="/">Back</a>
 """
@@ -215,6 +252,12 @@ def analytics():
         top_program=top_program,
         program_counts=counts.most_common()
     )
+
+@app.route('/admin')
+@requires_auth
+def admin():
+    logging.info("Admin dashboard accessed")
+    return render_template_string(ADMIN_PAGE, members=members, bookings=bookings)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
