@@ -1,7 +1,14 @@
 from flask import Flask, render_template_string, abort, request, redirect, url_for
 import re
+import logging
 
 app = Flask(__name__)
+
+logging.basicConfig(
+    filename='app.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 programs = {
     "fat-loss": {
@@ -108,13 +115,16 @@ BOOKINGS_PAGE = """
 
 @app.route('/')
 def home():
+    logging.info("Home page visited")
     return render_template_string(HOME_PAGE, programs=programs, member_count=len(members), booking_count=len(bookings))
 
 @app.route('/program/<key>')
 def program(key):
     p = programs.get(key)
     if not p:
+        logging.warning(f"Invalid program requested: {key}")
         abort(404)
+    logging.info(f"Program viewed: {key}")
     return render_template_string(PROGRAM_PAGE, program=p)
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -123,10 +133,13 @@ def signup():
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').strip()
         if not name:
+            logging.warning("Signup failed: empty name")
             return render_template_string(SIGNUP_PAGE, error="Name cannot be empty.")
         if not EMAIL_REGEX.match(email):
+            logging.warning(f"Signup failed: invalid email '{email}'")
             return render_template_string(SIGNUP_PAGE, error="Please enter a valid email address.")
         members.append({"name": name, "email": email})
+        logging.info(f"New member signed up: {name} ({email})")
         return redirect(url_for('members_list'))
     return render_template_string(SIGNUP_PAGE, error=None)
 
@@ -141,8 +154,10 @@ def book():
         program_key = request.form.get('program')
         slot = request.form.get('slot')
         if not name:
+            logging.warning("Booking failed: empty name")
             return render_template_string(BOOK_PAGE, error="Name cannot be empty.", programs=programs, slots=TIME_SLOTS)
         bookings.append({"name": name, "program": programs[program_key]["name"], "slot": slot})
+        logging.info(f"New booking: {name} - {programs[program_key]['name']} - {slot}")
         return redirect(url_for('bookings_list'))
     return render_template_string(BOOK_PAGE, error=None, programs=programs, slots=TIME_SLOTS)
 
