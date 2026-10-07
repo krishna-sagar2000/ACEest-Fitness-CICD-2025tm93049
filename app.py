@@ -19,22 +19,26 @@ programs = {
     "fat-loss": {
         "name": "Fat Loss (FL)",
         "workout": "Mon: 5x5 Back Squat + AMRAP\nTue: EMOM 20min Assault Bike\nWed: Bench Press + 21-15-9\nThu: 10RFT Deadlifts/Box Jumps\nFri: 30min Active Recovery",
-        "diet": "B: 3 Egg Whites + Oats Idli\nL: Grilled Chicken + Brown Rice\nD: Fish Curry + Millet Roti\nTarget: 2,000 kcal"
+        "diet": "B: 3 Egg Whites + Oats Idli\nL: Grilled Chicken + Brown Rice\nD: Fish Curry + Millet Roti\nTarget: 2,000 kcal",
+        "fee": 1500
     },
     "muscle-gain": {
         "name": "Muscle Gain (MG)",
         "workout": "Mon: Squat 5x5\nTue: Bench 5x5\nWed: Deadlift 4x6\nThu: Front Squat 4x8\nFri: Incline Press 4x10\nSat: Barbell Rows 4x10",
-        "diet": "B: 4 Eggs + PB Oats\nL: Chicken Biryani (250g Chicken)\nD: Mutton Curry + Jeera Rice\nTarget: 3,200 kcal"
+        "diet": "B: 4 Eggs + PB Oats\nL: Chicken Biryani (250g Chicken)\nD: Mutton Curry + Jeera Rice\nTarget: 3,200 kcal",
+        "fee": 2000
     },
     "beginner": {
         "name": "Beginner (BG)",
         "workout": "Circuit Training: Air Squats, Ring Rows, Push-ups.\nFocus: Technique Mastery & Form",
-        "diet": "Balanced Meals: Idli-Sambar, Rice-Dal, Chapati.\nProtein: 120g/day"
+        "diet": "Balanced Meals: Idli-Sambar, Rice-Dal, Chapati.\nProtein: 120g/day",
+        "fee": 1000
     }
 }
 
 members = []
 bookings = []
+payments = []
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 TIME_SLOTS = ["7:00 AM", "9:00 AM", "5:00 PM", "7:00 PM"]
 
@@ -62,7 +66,7 @@ HOME_PAGE = """
 <p>Select a program:</p>
 <ul>
 {% for key, p in programs.items() %}
-  <li><a href="/program/{{ key }}">{{ p.name }}</a></li>
+  <li><a href="/program/{{ key }}">{{ p.name }}</a> (Fee: Rs.{{ p.fee }})</li>
 {% endfor %}
 </ul>
 <hr>
@@ -73,6 +77,7 @@ HOME_PAGE = """
   <a href="/book">Book a trainer session</a> | 
   <a href="/bookings">View bookings ({{ booking_count }})</a> | 
   <a href="/analytics">View analytics</a> | 
+  <a href="/pay">Pay membership fee</a> | 
   <a href="/admin">Admin Dashboard</a>
 </p>
 """
@@ -83,6 +88,7 @@ PROGRAM_PAGE = """
 <pre>{{ program.workout }}</pre>
 <h3>Daily Nutrition Plan</h3>
 <pre>{{ program.diet }}</pre>
+<p>Membership Fee: Rs.{{ program.fee }}</p>
 <a href="/">Back</a>
 """
 
@@ -153,6 +159,23 @@ ANALYTICS_PAGE = """
 <a href="/">Back</a>
 """
 
+PAY_PAGE = """
+<h1>Pay Membership Fee</h1>
+{% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
+{% if success %}<p style="color:green;">Payment recorded! Receipt ID: {{ success }}</p>{% endif %}
+<form method="POST">
+  Name: <input type="text" name="name"><br><br>
+  Program:
+  <select name="program">
+    {% for key, p in programs.items() %}
+      <option value="{{ key }}">{{ p.name }} (Rs.{{ p.fee }})</option>
+    {% endfor %}
+  </select><br><br>
+  <input type="submit" value="Pay Now">
+</form>
+<a href="/">Back</a>
+"""
+
 ADMIN_PAGE = """
 <h1>Admin Dashboard</h1>
 <h3>All Members ({{ members|length }})</h3>
@@ -162,6 +185,10 @@ ADMIN_PAGE = """
 <h3>All Bookings ({{ bookings|length }})</h3>
 <ul>
 {% for b in bookings %}<li>{{ b.name }} - {{ b.program }} - {{ b.slot }}</li>{% endfor %}
+</ul>
+<h3>Payments ({{ payments|length }}) - Total Revenue: Rs.{{ total_revenue }}</h3>
+<ul>
+{% for p in payments %}<li>Receipt #{{ loop.index }}: {{ p.name }} - {{ p.program }} - Rs.{{ p.amount }}</li>{% endfor %}
 </ul>
 <a href="/">Back</a>
 """
@@ -253,11 +280,25 @@ def analytics():
         program_counts=counts.most_common()
     )
 
+@app.route('/pay', methods=['GET', 'POST'])
+def pay():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        program_key = request.form.get('program')
+        if not name:
+            return render_template_string(PAY_PAGE, error="Name cannot be empty.", success=None, programs=programs)
+        amount = programs[program_key]["fee"]
+        payments.append({"name": name, "program": programs[program_key]["name"], "amount": amount})
+        logging.info(f"Payment recorded: {name} - {programs[program_key]['name']} - Rs.{amount}")
+        return render_template_string(PAY_PAGE, error=None, success=len(payments), programs=programs)
+    return render_template_string(PAY_PAGE, error=None, success=None, programs=programs)
+
 @app.route('/admin')
 @requires_auth
 def admin():
     logging.info("Admin dashboard accessed")
-    return render_template_string(ADMIN_PAGE, members=members, bookings=bookings)
+    total_revenue = sum(p["amount"] for p in payments)
+    return render_template_string(ADMIN_PAGE, members=members, bookings=bookings, payments=payments, total_revenue=total_revenue)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
