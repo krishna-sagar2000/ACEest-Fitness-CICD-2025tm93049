@@ -113,6 +113,28 @@ BOOKINGS_PAGE = """
 <a href="/">Back</a>
 """
 
+ERROR_404_PAGE = """
+<h1 style="color:#c0392b;">404 - Page Not Found</h1>
+<p>Sorry, the page or program you're looking for doesn't exist.</p>
+<a href="/">Go back home</a>
+"""
+
+ERROR_500_PAGE = """
+<h1 style="color:#c0392b;">500 - Internal Server Error</h1>
+<p>Something went wrong on our end. Please try again later.</p>
+<a href="/">Go back home</a>
+"""
+
+@app.errorhandler(404)
+def not_found_error(error):
+    logging.warning(f"404 error: {request.path}")
+    return render_template_string(ERROR_404_PAGE), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    logging.error(f"500 error: {request.path}")
+    return render_template_string(ERROR_500_PAGE), 500
+
 @app.route('/')
 def home():
     logging.info("Home page visited")
