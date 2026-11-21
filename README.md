@@ -69,3 +69,4 @@ A Jenkins Freestyle job (`ACEest-Build`) polls this repository and, on detecting
 
 ### Why both
 GitHub Actions gives fast, cloud-hosted feedback on every branch and pull request, while Jenkins provides a self-hosted build gate consistent with a traditional enterprise CI setup. Together they demonstrate that the same codebase builds, lints, and passes its full test suite - inside its container - across two independent automation tools.
+# Assignment 2 - Jenkins pipeline verified
